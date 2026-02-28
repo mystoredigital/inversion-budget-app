@@ -2,17 +2,23 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { LogIn } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 
 export default function Login() {
+  const { session, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
 
+  // If already logged in, redirect to dashboard
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f0]">Loading...</div>;
+  if (session) return <Navigate to="/" replace />;
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
     setError(null);
 
     try {
@@ -33,7 +39,7 @@ export default function Login() {
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -48,7 +54,7 @@ export default function Login() {
         <h2 className="text-2xl font-semibold text-center mb-6 text-zinc-900">
           {isSignUp ? 'Create an account' : 'Welcome back'}
         </h2>
-        
+
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-4">
             {error}
@@ -80,10 +86,10 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={formLoading}
             className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
           >
-            {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
+            {formLoading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
 
