@@ -7,13 +7,11 @@ RUN npm ci
 
 COPY . .
 
-# Build args for Vite (baked at compile time)
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+# Inject Supabase env vars directly for Vite build (public anon keys)
+ENV VITE_SUPABASE_URL=https://tdwfsftgcbktekgknduj.supabase.co
+ENV VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkd2ZzZnRnY2JrdGVrZ2tuZHVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDUwOTgsImV4cCI6MjA4NzgyMTA5OH0.LteWlc_0U9nngHGvUTB8daIAu3sj322Dvtab1ndlA3k
 
-RUN VITE_SUPABASE_URL=${VITE_SUPABASE_URL} \
-    VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY} \
-    npm run build
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
