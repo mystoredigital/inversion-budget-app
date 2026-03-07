@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import { Download, RefreshCw, Send, Moon, Sun, Settings as SettingsIcon, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { Download, RefreshCw, Send, Moon, Sun, Settings as SettingsIcon, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
 export default function Settings() {
     const { settings, updateSettings, loading } = useSettings();
+    const { signOut } = useAuth();
+    const navigate = useNavigate();
     const [remindersWebhook, setRemindersWebhook] = useState(settings.webhook_reminders || '');
     const [syncWebhook, setSyncWebhook] = useState(settings.webhook_sync || '');
     const [saving, setSaving] = useState(false);
@@ -66,6 +70,11 @@ export default function Settings() {
         }
     };
 
+    const handleSignOut = async () => {
+        await signOut();
+        navigate('/login');
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
             <div className="flex items-center gap-4">
@@ -82,28 +91,28 @@ export default function Settings() {
 
                 {/* Appearance UI */}
                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col justify-between items-start">
-                    <div className="w-full">
+                    <div className="w-full mb-6">
                         <h2 className="text-xl font-bold text-zinc-900 mb-2 dark:text-white flex items-center gap-2">Apariencia</h2>
-                        <p className="text-zinc-500 text-sm font-medium mb-6 dark:text-zinc-400">Cambia la interfaz a tu gusto para proteger tu vista.</p>
+                        <p className="text-zinc-500 text-sm font-medium dark:text-zinc-400">Cambia la interfaz a tu gusto para proteger tu vista.</p>
                     </div>
 
                     <button
                         onClick={toggleTheme}
-                        className="flex items-center gap-3 w-full p-4 rounded-2xl border-2 border-zinc-100 hover:border-teal-500 dark:border-zinc-800 dark:hover:border-teal-500 transition-colors bg-zinc-50 dark:bg-zinc-800 font-semibold"
+                        className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl border-2 border-zinc-100 hover:border-teal-500 dark:border-zinc-800 dark:hover:border-teal-500 transition-colors bg-zinc-50 dark:bg-zinc-800 font-semibold"
                     >
                         {settings.theme === 'light' ? (
-                            <><Moon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" /> <span className="text-zinc-700 dark:text-zinc-300">Activar Modo Oscuro</span></>
+                            <><Moon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" /> <span className="text-zinc-700 dark:text-zinc-300">Modo Oscuro</span></>
                         ) : (
-                            <><Sun className="w-5 h-5 text-amber-500" /> <span className="text-zinc-700 dark:text-zinc-300">Activar Modo Claro</span></>
+                            <><Sun className="w-5 h-5 text-amber-500" /> <span className="text-zinc-700 dark:text-zinc-300">Modo Claro</span></>
                         )}
                     </button>
                 </div>
 
                 {/* Backup Data UI */}
                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col justify-between items-start">
-                    <div className="w-full">
+                    <div className="w-full mb-6">
                         <h2 className="text-xl font-bold text-zinc-900 mb-2 dark:text-white flex items-center gap-2">Copias de Seguridad</h2>
-                        <p className="text-zinc-500 text-sm font-medium mb-6 dark:text-zinc-400">Descarga un respaldo en CSV de todos tus movimientos financieros.</p>
+                        <p className="text-zinc-500 text-sm font-medium dark:text-zinc-400">Descarga un respaldo en CSV de todos tus movimientos financieros.</p>
                     </div>
 
                     <button
@@ -111,6 +120,21 @@ export default function Settings() {
                         className="flex items-center justify-center gap-2 w-full p-4 rounded-2xl bg-teal-900 text-white hover:bg-teal-800 transition-colors font-bold shadow-md shadow-teal-900/20"
                     >
                         <Download className="w-5 h-5" /> Exportar Datos (CSV)
+                    </button>
+                </div>
+
+                {/* Account Settings UI */}
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col justify-between items-start col-span-1 md:col-span-2 lg:col-span-1">
+                    <div className="w-full mb-6">
+                        <h2 className="text-xl font-bold text-zinc-900 mb-2 dark:text-white flex items-center gap-2">Cuenta</h2>
+                        <p className="text-zinc-500 text-sm font-medium dark:text-zinc-400">Administra el acceso a tu cuenta.</p>
+                    </div>
+
+                    <button
+                        onClick={handleSignOut}
+                        className="flex items-center justify-center gap-2 w-full p-4 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors font-bold dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50"
+                    >
+                        <LogOut className="w-5 h-5" /> Cerrar Sesión
                     </button>
                 </div>
 
