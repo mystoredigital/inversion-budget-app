@@ -192,7 +192,58 @@ export default function Dashboard() {
                 Ver Presupuesto →
               </button>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Mobile View - Pending */}
+            <div className="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+              {pendientes.length === 0 ? (
+                <div className="p-8 text-center text-zinc-500 font-medium">
+                  🎉 Todo al día este mes. ¡Sin pendientes!
+                </div>
+              ) : (
+                pendientes.map(expense => {
+                  const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
+                  const venceColor = isOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-amber-600 dark:text-amber-400';
+
+                  return (
+                    <div
+                      key={expense.id}
+                      onClick={() => openExpenseModal(expense)}
+                      className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</h4>
+                          {expense.cuenta && <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 truncate">{expense.cuenta}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{formatCurrency(expense.valor, expense.moneda)}</span>
+                          <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-[120px]">
+                          {expense.categoria}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[11px] font-bold ${venceColor}`}>
+                            {expense.vence_en || 'Pendiente'}
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPaymentModalExpense(expense); }}
+                            className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/30 text-zinc-400 transition-colors shadow-sm"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop View - Pending */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-zinc-50 text-zinc-400 font-bold border-b border-zinc-100 text-[10px] uppercase tracking-wider dark:bg-zinc-800/50 dark:border-zinc-800">
                   <tr>
@@ -213,7 +264,7 @@ export default function Dashboard() {
                   ) : (
                     pendientes.map(expense => {
                       const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
-                      const venceColor = isOverdue ? 'text-rose-600 font-bold' : 'text-amber-600';
+                      const venceColor = isOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-amber-600 dark:text-amber-400';
 
                       return (
                         <tr
@@ -240,7 +291,7 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={(e) => { e.stopPropagation(); setPaymentModalExpense(expense); }}
-                              className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/30 text-zinc-400 transition-colors"
+                              className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/30 text-zinc-400 transition-colors shadow-sm"
                               title="Marcar como pagado"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
@@ -265,7 +316,39 @@ export default function Dashboard() {
                   <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full dark:bg-emerald-900/30">{pagados.length}</span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Mobile View - Paid */}
+              <div className="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+                {pagados.map(expense => (
+                  <div
+                    key={expense.id}
+                    onClick={() => openExpenseModal(expense)}
+                    className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</h4>
+                        {expense.cuenta && <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 truncate">{expense.cuenta}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{formatCurrency(expense.valor, expense.moneda)}</span>
+                        <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-[120px]">
+                        {expense.categoria}
+                      </span>
+                      <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[11px]">
+                        {expense.fecha} ✓
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop View - Paid */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-zinc-50 text-zinc-400 font-bold border-b border-zinc-100 text-[10px] uppercase tracking-wider dark:bg-zinc-800/50 dark:border-zinc-800">
                     <tr>

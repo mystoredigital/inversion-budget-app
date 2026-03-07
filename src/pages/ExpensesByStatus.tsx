@@ -101,7 +101,7 @@ export default function ExpensesByStatus() {
     Negocios: { label: 'Negocios', bgCard: 'bg-amber-50 dark:bg-amber-900/20', bgBadge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', textColor: 'text-amber-700 dark:text-amber-400', icon: Briefcase },
   };
 
-  const renderRow = (expense: Expense) => {
+  const renderRowDesktop = (expense: Expense) => {
     const isPagado = expense.status === 'Pagado';
     const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
 
@@ -165,11 +165,79 @@ export default function ExpensesByStatus() {
     );
   };
 
+  const renderCardMobile = (expense: Expense) => {
+    const isPagado = expense.status === 'Pagado';
+    const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
+
+    let statusBg = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400';
+    let statusText = 'Pendiente';
+    let venceColor = 'text-amber-600';
+
+    if (isPagado) {
+      statusBg = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
+      statusText = 'Pagado';
+      venceColor = 'text-emerald-600 dark:text-emerald-400';
+    } else if (isOverdue) {
+      statusBg = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400';
+      venceColor = 'text-rose-600 dark:text-rose-400';
+    }
+
+    return (
+      <div
+        key={expense.id}
+        onClick={() => openExpenseModal(expense)}
+        className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group"
+      >
+        <div className="flex justify-between items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</h4>
+            {expense.cuenta && <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 truncate">{expense.cuenta}</p>}
+          </div>
+          <div className="text-right shrink-0">
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{formatCurrency(expense.valor, expense.moneda)}</span>
+            <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-2">
+            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${statusBg}`}>
+              {statusText}
+            </span>
+            <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-[100px]">
+              {expense.categoria}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`text-[11px] font-bold ${venceColor}`}>
+              {expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
+            </span>
+            {expense.status === 'Pendiente' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setPaymentModalExpense(expense); }}
+                className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/30 text-zinc-400 transition-colors"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTable = (items: Expense[]) => {
     const sorted = [...items.filter(e => e.status === 'Pendiente'), ...items.filter(e => e.status === 'Pagado')];
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 overflow-hidden dark:bg-zinc-900 dark:border-zinc-800">
-        <div className="overflow-x-auto">
+
+        {/* Mobile View */}
+        <div className="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800/50">
+          {sorted.map(renderCardMobile)}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-400 font-bold border-b border-zinc-100 text-[10px] uppercase tracking-wider dark:bg-zinc-800/50 dark:border-zinc-800">
               <tr>
@@ -183,7 +251,7 @@ export default function ExpensesByStatus() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-              {sorted.map(renderRow)}
+              {sorted.map(renderRowDesktop)}
             </tbody>
           </table>
         </div>

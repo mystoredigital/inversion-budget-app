@@ -123,9 +123,82 @@ export default function ExpensesTable() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+          {loading ? (
+            <div className="p-8 text-center text-zinc-500 font-medium">Buscando base de datos...</div>
+          ) : filteredExpenses.length === 0 ? (
+            <div className="p-8 text-center text-zinc-500 font-medium">No se encontraron movimientos.</div>
+          ) : (
+            filteredExpenses.map((expense) => {
+              const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
+              const isPagado = expense.status === 'Pagado';
+
+              let statusBg = 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400';
+              let statusDot = 'bg-amber-500';
+              let expiryColor = 'text-amber-600 dark:text-amber-400';
+
+              if (isPagado) {
+                statusBg = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400';
+                statusDot = 'bg-emerald-500';
+                expiryColor = 'text-emerald-500';
+              } else if (isOverdue) {
+                statusBg = 'bg-rose-50 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400';
+                statusDot = 'bg-rose-500';
+                expiryColor = 'text-rose-600 dark:text-rose-400';
+              }
+
+              return (
+                <div
+                  key={expense.id}
+                  onClick={() => openExpenseModal(expense)}
+                  className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group"
+                >
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</h4>
+                      {expense.cuenta && <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 truncate">{expense.cuenta}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{formatCurrency(expense.valor, expense.moneda)}</span>
+                      <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${statusBg}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full mr-1 ${statusDot}`}></div>
+                        {expense.status}
+                      </span>
+                      <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-[100px]">
+                        {expense.categoria}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[11px] font-bold ${expiryColor}`}>
+                        {expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
+                      </span>
+                      {expense.status === 'Pendiente' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setPaymentModalExpense(expense); }}
+                          className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 dark:hover:bg-teal-900/30 text-zinc-400 transition-colors"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-white text-zinc-400 font-bold border-b border-zinc-100 text-xs uppercase tracking-wider">
+            <thead className="bg-white text-zinc-400 font-bold border-b border-zinc-100 text-xs uppercase tracking-wider dark:bg-zinc-900 dark:border-zinc-800">
               <tr>
                 <th className="px-8 py-5">Estado</th>
                 <th className="px-6 py-5">Detalle / Inversión</th>
@@ -135,7 +208,7 @@ export default function ExpensesTable() {
                 <th className="px-8 py-5 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-50">
+            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-12 text-center text-zinc-500 font-medium">Buscando base de datos...</td>
@@ -149,22 +222,22 @@ export default function ExpensesTable() {
                   const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
                   const isPagado = expense.status === 'Pagado';
 
-                  let statusBg = 'bg-amber-50 text-amber-600';
+                  let statusBg = 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400';
                   let statusDot = 'bg-amber-500';
-                  let expiryColor = 'text-amber-600';
+                  let expiryColor = 'text-amber-600 dark:text-amber-400';
 
                   if (isPagado) {
-                    statusBg = 'bg-emerald-50 text-emerald-600';
+                    statusBg = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400';
                     statusDot = 'bg-emerald-500';
                     expiryColor = 'text-emerald-500';
                   } else if (isOverdue) {
-                    statusBg = 'bg-rose-50 text-rose-600';
+                    statusBg = 'bg-rose-50 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400';
                     statusDot = 'bg-rose-500';
-                    expiryColor = 'text-rose-600';
+                    expiryColor = 'text-rose-600 dark:text-rose-400';
                   }
 
                   return (
-                    <tr key={expense.id} onClick={() => openExpenseModal(expense)} className="hover:bg-zinc-50/80 transition-colors group cursor-pointer">
+                    <tr key={expense.id} onClick={() => openExpenseModal(expense)} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors group cursor-pointer">
                       <td className="px-8 py-5">
                         <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold ${statusBg}`}>
                           <div className={`w-1.5 h-1.5 rounded-full mr-2 ${statusDot}`}></div>
@@ -172,27 +245,27 @@ export default function ExpensesTable() {
                         </span>
                       </td>
                       <td className="px-6 py-5">
-                        <p className="font-bold text-zinc-900 group-hover:text-teal-700 transition-colors">{expense.expense}</p>
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</p>
                         <p className="text-xs text-zinc-400 font-medium mt-1">{expense.cuenta || 'Sin Cuenta'}</p>
                       </td>
                       <td className="px-6 py-5">
-                        <span className="bg-zinc-100 text-zinc-600 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide border border-zinc-200/50">
+                        <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide border border-zinc-200/50 dark:border-zinc-700">
                           {expense.categoria}
                         </span>
                         <p className="text-xs text-zinc-400 font-medium mt-1 uppercase">{expense.tipo_presupuesto}</p>
                       </td>
                       <td className="px-6 py-5">
-                        <p className="text-zinc-600 font-medium">{expense.fecha || 'Sin fecha'}</p>
+                        <p className="text-zinc-600 dark:text-zinc-400 font-medium">{expense.fecha || 'Sin fecha'}</p>
                         <p className={`text-xs font-bold mt-1 ${expiryColor}`}>{expense.vence_en || 'Pendiente'}</p>
                       </td>
-                      <td className="px-6 py-5 font-bold text-zinc-900 text-base text-right whitespace-nowrap">
-                        {formatCurrency(expense.valor, expense.moneda)} <span className="text-xs ml-1 text-zinc-400">{expense.moneda || 'COP'}</span>
+                      <td className="px-6 py-5 font-bold text-zinc-900 dark:text-zinc-100 text-base text-right whitespace-nowrap">
+                        {formatCurrency(expense.valor, expense.moneda)} <span className="text-xs ml-1 text-zinc-400 dark:text-zinc-500">{expense.moneda || 'COP'}</span>
                       </td>
                       <td className="px-8 py-5 text-right">
                         {expense.status === 'Pendiente' ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); setPaymentModalExpense(expense); }}
-                            className="w-10 h-10 rounded-full inline-flex items-center justify-center bg-white border border-zinc-200 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 text-zinc-400 transition-colors shadow-sm"
+                            className="w-10 h-10 rounded-full inline-flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 dark:hover:bg-teal-900/30 text-zinc-400 transition-colors shadow-sm"
                             title="Marcar como pagado"
                           >
                             <CheckCircle className="w-5 h-5" />
