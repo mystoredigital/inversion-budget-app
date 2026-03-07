@@ -98,7 +98,7 @@ export default function Layout() {
       {/* Main Content */}
       <main className="flex-1 overflow-x-hidden overflow-y-auto w-full h-screen md:h-[calc(100vh-32px)] pb-24 md:pb-0">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-zinc-900 sticky top-0 z-10 shadow-sm">
+        <div className="md:hidden flex items-center justify-between p-4 pt-[calc(1rem+env(safe-area-inset-top))] bg-white dark:bg-zinc-900 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-teal-900 dark:bg-teal-600 flex items-center justify-center shrink-0">
               <div className="w-3 h-6 bg-teal-100 dark:bg-teal-100/20 rounded-l-full -mr-[3px]"></div>
