@@ -308,6 +308,25 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
                         <p className="font-bold text-xl text-zinc-900">{formatCurrency(expense.valor, expense.moneda)}</p>
                     </div>
 
+                    {/* Link de pago */}
+                    {expense.link && (
+                        <a
+                            href={expense.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 w-full px-5 py-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition-colors group"
+                        >
+                            <span className="w-9 h-9 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors">
+                                <span className="text-lg">🔗</span>
+                            </span>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-blue-800 text-sm">Ir a la página de pago</p>
+                                <p className="text-blue-600/70 text-xs truncate mt-0.5">{expense.link}</p>
+                            </div>
+                            <span className="text-blue-400 text-lg shrink-0">→</span>
+                        </a>
+                    )}
+
                     {/* Overdue Warning Banner */}
                     {isOverdue && (
                         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
