@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, Expense } from '../lib/supabase';
-import { X, Trash2 } from 'lucide-react';
+import { supabase, Expense, UserCategory, UserBudgetType } from '../lib/supabase';
+import { X, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 
@@ -16,6 +16,14 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
     const { settings } = useSettings();
     const [loading, setLoading] = useState(false);
 
+    // Dynamic categories and budget types from DB
+    const [categories, setCategories] = useState<UserCategory[]>([]);
+    const [budgetTypes, setBudgetTypes] = useState<UserBudgetType[]>([]);
+    const [showNewCategory, setShowNewCategory] = useState(false);
+    const [showNewType, setShowNewType] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newTypeName, setNewTypeName] = useState('');
+
     const defaultForm = {
         expense: '',
         categoria: 'Home',
@@ -27,9 +35,38 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
         frecuencia: 'Unico',
         cuenta: '',
         nombre: '',
+        link: '',
     };
 
     const [formData, setFormData] = useState(defaultForm);
+
+    // Fetch categories and budget types from DB
+    useEffect(() => {
+        if (user) {
+            fetchCategories();
+            fetchBudgetTypes();
+        }
+    }, [user]);
+
+    async function fetchCategories() {
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('user_categories')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('name');
+        if (!error && data) setCategories(data);
+    }
+
+    async function fetchBudgetTypes() {
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('user_budget_types')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('name');
+        if (!error && data) setBudgetTypes(data);
+    }
 
     useEffect(() => {
         if (isOpen) {
@@ -45,10 +82,15 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
                     frecuencia: expenseToEdit.frecuencia || 'Unico',
                     cuenta: expenseToEdit.cuenta || '',
                     nombre: expenseToEdit.nombre || '',
+                    link: expenseToEdit.link || '',
                 });
             } else {
                 setFormData(defaultForm);
             }
+            setShowNewCategory(false);
+            setShowNewType(false);
+            setNewCategoryName('');
+            setNewTypeName('');
         }
     }, [isOpen, expenseToEdit]);
 
@@ -56,6 +98,90 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleAddCategory = async () => {
+        const trimmed = newCategoryName.trim();
+        if (!trimmed || !user) return;
+        // Check if already exists
+        if (categories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+            setFormData({ ...formData, categoria: trimmed });
+            setShowNewCategory(false);
+            setNewCategoryName('');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('user_categories')
+            .insert([{ user_id: user.id, name: trimmed }])
+            .select()
+            .single();
+
+        if (!error && data) {
+            setCategories(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+            setFormData({ ...formData, categoria: data.name });
+            setShowNewCategory(false);
+            setNewCategoryName('');
+        } else {
+            alert('Error al crear categoría: ' + (error?.message || 'Error desconocido'));
+        }
+    };
+
+    const handleAddBudgetType = async () => {
+        const trimmed = newTypeName.trim();
+        if (!trimmed || !user) return;
+        // Check if already exists
+        if (budgetTypes.some(t => t.name.toLowerCase() === trimmed.toLowerCase())) {
+            setFormData({ ...formData, tipo_presupuesto: trimmed });
+            setShowNewType(false);
+            setNewTypeName('');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('user_budget_types')
+            .insert([{ user_id: user.id, name: trimmed }])
+            .select()
+            .single();
+
+        if (!error && data) {
+            setBudgetTypes(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+            setFormData({ ...formData, tipo_presupuesto: data.name });
+            setShowNewType(false);
+            setNewTypeName('');
+        } else {
+            alert('Error al crear tipo: ' + (error?.message || 'Error desconocido'));
+        }
+    };
+
+    const handleDeleteCategory = async (cat: UserCategory) => {
+        if (!window.confirm(`¿Eliminar la categoría "${cat.name}"?`)) return;
+        const { error } = await supabase
+            .from('user_categories')
+            .delete()
+            .eq('id', cat.id);
+        if (!error) {
+            setCategories(prev => prev.filter(c => c.id !== cat.id));
+            if (formData.categoria === cat.name && categories.length > 1) {
+                const remaining = categories.filter(c => c.id !== cat.id);
+                setFormData({ ...formData, categoria: remaining[0]?.name || '' });
+            }
+        }
+    };
+
+    const handleDeleteBudgetType = async (bt: UserBudgetType) => {
+        if (!window.confirm(`¿Eliminar el tipo "${bt.name}"?`)) return;
+        const { error } = await supabase
+            .from('user_budget_types')
+            .delete()
+            .eq('id', bt.id);
+        if (!error) {
+            setBudgetTypes(prev => prev.filter(t => t.id !== bt.id));
+            if (formData.tipo_presupuesto === bt.name && budgetTypes.length > 1) {
+                const remaining = budgetTypes.filter(t => t.id !== bt.id);
+                setFormData({ ...formData, tipo_presupuesto: remaining[0]?.name || '' });
+            }
+        }
     };
 
     const handleDelete = async () => {
@@ -98,6 +224,7 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
                 frecuencia: formData.frecuencia,
                 cuenta: formData.cuenta,
                 nombre: formData.nombre,
+                link: formData.link || null,
             };
 
             let dataResult;
@@ -193,33 +320,113 @@ export default function ExpenseModal({ isOpen, onClose, onSuccess, expenseToEdit
                                 <label className="block text-sm font-semibold text-zinc-700 mb-2">Cuenta u Origen</label>
                                 <input type="text" name="cuenta" value={formData.cuenta} onChange={handleChange} placeholder="Ej. Bancolombia" className="w-full px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none transition-shadow" />
                             </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-zinc-700 mb-2">URL de Pago</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">🔗</span>
+                                    <input type="url" name="link" value={formData.link} onChange={handleChange} placeholder="https://pago.ejemplo.com" className="w-full pl-10 pr-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none transition-shadow text-sm" />
+                                </div>
+                                <p className="text-[11px] text-zinc-400 mt-1.5 font-medium">Enlace al sitio donde se realiza el pago</p>
+                            </div>
                         </div>
 
-                        {/* Clasification */}
+                        {/* Clasification - Dynamic */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Tipo (Budget Type) - Dynamic */}
                             <div>
                                 <label className="block text-sm font-semibold text-zinc-700 mb-2">Tipo</label>
-                                <select name="tipo_presupuesto" value={formData.tipo_presupuesto} onChange={handleChange} className="w-full px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer">
-                                    <option value="Personal">Personal</option>
-                                    <option value="Suscripciones">Suscripciones</option>
-                                    <option value="Negocios">Negocios</option>
-                                </select>
+                                {!showNewType ? (
+                                    <div className="flex gap-1">
+                                        <select
+                                            name="tipo_presupuesto"
+                                            value={formData.tipo_presupuesto}
+                                            onChange={handleChange}
+                                            className="flex-1 px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer"
+                                        >
+                                            {budgetTypes.map(t => (
+                                                <option key={t.id} value={t.name}>{t.name}</option>
+                                            ))}
+                                            {/* If current form value doesn't exist in DB, show it as option */}
+                                            {formData.tipo_presupuesto && !budgetTypes.some(t => t.name === formData.tipo_presupuesto) && (
+                                                <option value={formData.tipo_presupuesto}>{formData.tipo_presupuesto}</option>
+                                            )}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewType(true)}
+                                            className="w-10 h-10 shrink-0 rounded-xl bg-teal-50 border border-teal-200 text-teal-600 hover:bg-teal-100 transition-colors flex items-center justify-center self-center"
+                                            title="Agregar nuevo tipo"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-1">
+                                        <input
+                                            type="text"
+                                            value={newTypeName}
+                                            onChange={(e) => setNewTypeName(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddBudgetType(); } }}
+                                            placeholder="Nombre del tipo"
+                                            className="flex-1 px-4 py-3 bg-zinc-50 border border-teal-300 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                                            autoFocus
+                                        />
+                                        <button type="button" onClick={handleAddBudgetType} className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 transition-colors">OK</button>
+                                        <button type="button" onClick={() => { setShowNewType(false); setNewTypeName(''); }} className="px-2 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 transition-colors">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Categoría - Dynamic */}
                             <div>
                                 <label className="block text-sm font-semibold text-zinc-700 mb-2">Categoría</label>
-                                <select name="categoria" value={formData.categoria} onChange={handleChange} className="w-full px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer">
-                                    <option value="Home">Home</option>
-                                    <option value="Food">Food</option>
-                                    <option value="Entertainment">Entertainment</option>
-                                    <option value="Salud">Salud</option>
-                                    <option value="Servicios">Servicios</option>
-                                    <option value="Creditos">Creditos</option>
-                                    <option value="Tarjeta de Credito">Tarjeta de Crédito</option>
-                                    <option value="Colegio">Colegio</option>
-                                    <option value="Business">Business</option>
-                                    <option value="Car">Car</option>
-                                </select>
+                                {!showNewCategory ? (
+                                    <div className="flex gap-1">
+                                        <select
+                                            name="categoria"
+                                            value={formData.categoria}
+                                            onChange={handleChange}
+                                            className="flex-1 px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer"
+                                        >
+                                            {categories.map(c => (
+                                                <option key={c.id} value={c.name}>{c.name}</option>
+                                            ))}
+                                            {/* If current form value doesn't exist in DB, show it as option */}
+                                            {formData.categoria && !categories.some(c => c.name === formData.categoria) && (
+                                                <option value={formData.categoria}>{formData.categoria}</option>
+                                            )}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewCategory(true)}
+                                            className="w-10 h-10 shrink-0 rounded-xl bg-teal-50 border border-teal-200 text-teal-600 hover:bg-teal-100 transition-colors flex items-center justify-center self-center"
+                                            title="Agregar nueva categoría"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-1">
+                                        <input
+                                            type="text"
+                                            value={newCategoryName}
+                                            onChange={(e) => setNewCategoryName(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                                            placeholder="Nombre categoría"
+                                            className="flex-1 px-4 py-3 bg-zinc-50 border border-teal-300 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                                            autoFocus
+                                        />
+                                        <button type="button" onClick={handleAddCategory} className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 transition-colors">OK</button>
+                                        <button type="button" onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }} className="px-2 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 transition-colors">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Frecuencia - stays static */}
                             <div>
                                 <label className="block text-sm font-semibold text-zinc-700 mb-2">Frecuencia</label>
                                 <select name="frecuencia" value={formData.frecuencia} onChange={handleChange} className="w-full px-5 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer">

@@ -5,12 +5,24 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-k
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ── Types ──
+
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  preferred_currency: 'COP' | 'USD';
+  plan: 'free' | 'pro' | 'enterprise';
+  created_at: string;
+  updated_at: string;
+};
+
 export type Expense = {
   id: string;
   user_id: string;
   expense: string;
   categoria: string;
-  status: 'Pendiente' | 'Pagado';
+  status: 'Pendiente' | 'Pagado' | 'Vencido';
   fecha: string | null;
   valor: number;
   moneda: 'COP' | 'USD';
@@ -19,7 +31,7 @@ export type Expense = {
   phone: string | null;
   link: string | null;
   comment: string | null;
-  tipo_presupuesto: 'Personal' | 'Suscripciones' | 'Negocios';
+  tipo_presupuesto: string;
   frecuencia: 'Unico' | 'Mensual' | 'Bimestral' | 'Trimestral' | 'Semestral' | 'Anual';
   created_at: string;
   updated_at: string;
@@ -35,5 +47,19 @@ export type ExpenseFile = {
   filename: string | null;
   mime_type: string | null;
   size: number | null;
+  created_at: string;
+};
+
+export type UserCategory = {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+};
+
+export type UserBudgetType = {
+  id: string;
+  user_id: string;
+  name: string;
   created_at: string;
 };

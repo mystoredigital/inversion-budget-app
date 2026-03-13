@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase, Expense } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
-import { CheckCircle, Clock, CreditCard, TrendingDown, Briefcase, User, Zap, CalendarDays, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, CreditCard, TrendingDown, Briefcase, User, Zap, CalendarDays, Calendar, AlertTriangle } from 'lucide-react';
 import PaymentConfirmModal from '../components/PaymentConfirmModal';
 import ExpenseModal from '../components/ExpenseModal';
 import { format, endOfMonth } from 'date-fns';
@@ -11,18 +11,23 @@ const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Juli
 function calcTotals(items: Expense[]) {
   const pendientes = items.filter(e => e.status === 'Pendiente');
   const pagados = items.filter(e => e.status === 'Pagado');
+  const vencidos = items.filter(e => e.status === 'Vencido');
   return {
     pendientes,
     pagados,
+    vencidos,
     totalCOP: items.filter(e => (e.moneda || 'COP') === 'COP').reduce((a, c) => a + Number(c.valor), 0),
     totalUSD: items.filter(e => e.moneda === 'USD').reduce((a, c) => a + Number(c.valor), 0),
     pendienteCOP: pendientes.filter(e => (e.moneda || 'COP') === 'COP').reduce((a, c) => a + Number(c.valor), 0),
     pendienteUSD: pendientes.filter(e => e.moneda === 'USD').reduce((a, c) => a + Number(c.valor), 0),
     pagadoCOP: pagados.filter(e => (e.moneda || 'COP') === 'COP').reduce((a, c) => a + Number(c.valor), 0),
     pagadoUSD: pagados.filter(e => e.moneda === 'USD').reduce((a, c) => a + Number(c.valor), 0),
+    vencidoCOP: vencidos.filter(e => (e.moneda || 'COP') === 'COP').reduce((a, c) => a + Number(c.valor), 0),
+    vencidoUSD: vencidos.filter(e => e.moneda === 'USD').reduce((a, c) => a + Number(c.valor), 0),
     count: items.length,
     pendienteCount: pendientes.length,
     pagadoCount: pagados.length,
+    vencidoCount: vencidos.length,
   };
 }
 
@@ -103,7 +108,8 @@ export default function ExpensesByStatus() {
 
   const renderRowDesktop = (expense: Expense) => {
     const isPagado = expense.status === 'Pagado';
-    const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
+    const isVencido = expense.status === 'Vencido';
+    const isOverdue = expense.vence_en?.startsWith('Vencido hace') || expense.vence_en?.startsWith('Vence hoy');
 
     let statusBg = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400';
     let venceColor = 'text-amber-600';
@@ -111,6 +117,9 @@ export default function ExpensesByStatus() {
     if (isPagado) {
       statusBg = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
       venceColor = 'text-emerald-500';
+    } else if (isVencido) {
+      statusBg = 'bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400';
+      venceColor = 'text-zinc-400';
     } else if (isOverdue) {
       statusBg = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400';
       venceColor = 'text-rose-600';
@@ -120,7 +129,7 @@ export default function ExpensesByStatus() {
       <tr
         key={expense.id}
         onClick={() => openExpenseModal(expense)}
-        className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group"
+        className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group ${isVencido ? 'opacity-60' : ''}`}
       >
         <td className="px-4 py-3">
           <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold ${statusBg}`}>
@@ -128,11 +137,11 @@ export default function ExpensesByStatus() {
           </span>
         </td>
         <td className="px-4 py-3">
-          <p className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors leading-tight text-[13px]">{expense.expense}</p>
+          <p className={`font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors leading-tight text-[13px] ${isVencido ? 'line-through' : ''}`}>{expense.expense}</p>
           {expense.cuenta && <p className="text-[11px] text-zinc-400 font-medium mt-0.5">{expense.cuenta}</p>}
         </td>
         <td className="px-4 py-3 text-right whitespace-nowrap">
-          <span className="font-bold text-zinc-900 dark:text-zinc-100 text-[13px]">{formatCurrency(expense.valor, expense.moneda)}</span>
+          <span className={`font-bold text-zinc-900 dark:text-zinc-100 text-[13px] ${isVencido ? 'line-through' : ''}`}>{formatCurrency(expense.valor, expense.moneda)}</span>
           <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
         </td>
         <td className="px-4 py-3">
@@ -145,7 +154,7 @@ export default function ExpensesByStatus() {
         </td>
         <td className="px-4 py-3">
           <span className={`text-[11px] font-bold ${venceColor}`}>
-            {expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
+            {isVencido ? 'Vencido (duplicado)' : expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
           </span>
         </td>
         <td className="px-4 py-3 text-center">
@@ -157,6 +166,8 @@ export default function ExpensesByStatus() {
             >
               <CheckCircle className="w-3.5 h-3.5" />
             </button>
+          ) : isVencido ? (
+            <AlertTriangle className="w-3.5 h-3.5 text-zinc-400 mx-auto" />
           ) : (
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mx-auto" />
           )}
@@ -167,7 +178,8 @@ export default function ExpensesByStatus() {
 
   const renderCardMobile = (expense: Expense) => {
     const isPagado = expense.status === 'Pagado';
-    const isOverdue = expense.vence_en?.startsWith('Venci') || expense.vence_en?.startsWith('Vence hoy');
+    const isVencido = expense.status === 'Vencido';
+    const isOverdue = expense.vence_en?.startsWith('Vencido hace') || expense.vence_en?.startsWith('Vence hoy');
 
     let statusBg = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400';
     let statusText = 'Pendiente';
@@ -177,6 +189,10 @@ export default function ExpensesByStatus() {
       statusBg = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
       statusText = 'Pagado';
       venceColor = 'text-emerald-600 dark:text-emerald-400';
+    } else if (isVencido) {
+      statusBg = 'bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400';
+      statusText = 'Vencido';
+      venceColor = 'text-zinc-400';
     } else if (isOverdue) {
       statusBg = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400';
       venceColor = 'text-rose-600 dark:text-rose-400';
@@ -186,15 +202,15 @@ export default function ExpensesByStatus() {
       <div
         key={expense.id}
         onClick={() => openExpenseModal(expense)}
-        className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group"
+        className={`p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer flex flex-col gap-3 group ${isVencido ? 'opacity-60' : ''}`}
       >
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{expense.expense}</h4>
+            <h4 className={`font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${isVencido ? 'line-through' : ''}`}>{expense.expense}</h4>
             {expense.cuenta && <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 truncate">{expense.cuenta}</p>}
           </div>
           <div className="text-right shrink-0">
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{formatCurrency(expense.valor, expense.moneda)}</span>
+            <span className={`font-bold text-zinc-900 dark:text-zinc-100 text-sm ${isVencido ? 'line-through' : ''}`}>{formatCurrency(expense.valor, expense.moneda)}</span>
             <span className="text-[10px] ml-1 text-zinc-400 font-semibold">{expense.moneda || 'COP'}</span>
           </div>
         </div>
@@ -210,7 +226,7 @@ export default function ExpensesByStatus() {
           </div>
           <div className="flex items-center gap-3">
             <span className={`text-[11px] font-bold ${venceColor}`}>
-              {expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
+              {isVencido ? 'Vencido (dup.)' : expense.vence_en || (isPagado ? 'Pagado' : 'Pendiente')}
             </span>
             {expense.status === 'Pendiente' && (
               <button
@@ -227,7 +243,7 @@ export default function ExpensesByStatus() {
   };
 
   const renderTable = (items: Expense[]) => {
-    const sorted = [...items.filter(e => e.status === 'Pendiente'), ...items.filter(e => e.status === 'Pagado')];
+    const sorted = [...items.filter(e => e.status === 'Pendiente'), ...items.filter(e => e.status === 'Pagado'), ...items.filter(e => e.status === 'Vencido')];
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 overflow-hidden dark:bg-zinc-900 dark:border-zinc-800">
 

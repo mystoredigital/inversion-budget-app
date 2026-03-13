@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, Expense } from '../lib/supabase';
-import { X, UploadCloud, CheckCircle2, Image as ImageIcon, Calendar as CalendarIcon } from 'lucide-react';
+import { X, UploadCloud, CheckCircle2, Image as ImageIcon, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../lib/utils';
@@ -17,6 +17,7 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
     const { user } = useAuth();
     const { settings } = useSettings();
     const [loading, setLoading] = useState(false);
+    const [loadingOverdue, setLoadingOverdue] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -55,6 +56,12 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
     }, [expense]);
 
     if (!expense) return null;
+
+    // Check if expense is overdue
+    const isOverdue = expense.vence_en?.startsWith('Vencido hace') || expense.vence_en?.startsWith('Vence hoy');
+    const isExpiredPastMonth = expense.fecha
+        ? new Date(expense.fecha + 'T12:00:00') < new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        : false;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -100,12 +107,11 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
             }
 
             // 2. Actualizar estado del pago a 'Pagado'
-            // Y actualizar la fecha a la que el usuario seleccionó como "fecha de pago"
             const { data: updatedData, error: updateError } = await supabase
                 .from('expenses')
                 .update({
                     status: 'Pagado',
-                    fecha: paymentDate // Establecemos la fecha en la que realmente se pagó
+                    fecha: paymentDate
                 })
                 .eq('id', expense.id)
                 .select()
@@ -153,7 +159,7 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
 
                 const nextDateStr = nextDate.toISOString().split('T')[0];
 
-                // Check if a pending renewal already exists for same expense/date to avoid duplicates
+                // Check if a pending renewal already exists
                 const { data: existing } = await supabase
                     .from('expenses')
                     .select('id')
@@ -190,6 +196,91 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
         }
     };
 
+    // ── Handle "Marcar Vencido" ──
+    // Marks the current overdue expense as 'Vencido' and creates
+    // a new expense for the next month with DOUBLE the value
+    const handleMarkOverdue = async () => {
+        if (isSubmitting.current) return;
+        isSubmitting.current = true;
+        setLoadingOverdue(true);
+        try {
+            if (!user) throw new Error('Usuario no autenticado');
+
+            // 1. Mark current expense as 'Vencido' so it stops appearing in n8n notifications
+            const { data: updatedData, error: updateError } = await supabase
+                .from('expenses')
+                .update({
+                    status: 'Vencido',
+                    comment: (expense.comment ? expense.comment + ' | ' : '') + 'Marcado como vencido - duplicado al siguiente mes con valor doble'
+                })
+                .eq('id', expense.id)
+                .select()
+                .single();
+
+            if (updateError) throw updateError;
+
+            // 2. Create new expense for next month with DOUBLE value
+            const originalDate = expense.fecha ? new Date(expense.fecha + 'T12:00:00') : new Date();
+            const nextMonth = addMonths(originalDate, 1);
+            const nextDateStr = nextMonth.toISOString().split('T')[0];
+            const doubleValue = Number(expense.valor) * 2;
+
+            // Check if a duplicate already exists to avoid creating multiple
+            const { data: existing } = await supabase
+                .from('expenses')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('expense', expense.expense)
+                .eq('fecha', nextDateStr)
+                .eq('status', 'Pendiente')
+                .maybeSingle();
+
+            if (!existing) {
+                const { error: insertError } = await supabase.from('expenses').insert([{
+                    user_id: user.id,
+                    expense: expense.expense,
+                    categoria: expense.categoria,
+                    status: 'Pendiente',
+                    fecha: nextDateStr,
+                    valor: doubleValue,
+                    moneda: expense.moneda || 'COP',
+                    tipo_presupuesto: expense.tipo_presupuesto || 'Personal',
+                    frecuencia: expense.frecuencia || 'Unico',
+                    cuenta: expense.cuenta || '',
+                    nombre: expense.nombre || '',
+                    comment: `Pago vencido de ${expense.fecha || 'mes anterior'} (${formatCurrency(expense.valor, expense.moneda)}) + cuota actual`,
+                }]);
+                if (insertError) throw insertError;
+            }
+
+            // 3. Notify webhook that overdue was processed
+            if (settings.webhook_sync) {
+                try {
+                    await fetch(settings.webhook_sync, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...updatedData,
+                            _action: 'overdue_rolled_over',
+                            _new_value: doubleValue,
+                            _new_date: nextDateStr,
+                        }),
+                    });
+                } catch (webhookError) {
+                    console.error('No se pudo enviar al webhook de sync:', webhookError);
+                }
+            }
+
+            onSuccess();
+            onClose();
+        } catch (err: any) {
+            alert('Error marcando como vencido: ' + err.message);
+        } finally {
+            setLoadingOverdue(false);
+            isSubmitting.current = false;
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -216,6 +307,21 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
                         </div>
                         <p className="font-bold text-xl text-zinc-900">{formatCurrency(expense.valor, expense.moneda)}</p>
                     </div>
+
+                    {/* Overdue Warning Banner */}
+                    {isOverdue && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertTriangle className="w-4.5 h-4.5 text-rose-600" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-rose-800 text-sm">Pago Vencido</p>
+                                <p className="text-rose-600 text-xs mt-1 leading-relaxed">
+                                    Este pago está vencido ({expense.vence_en}). Puedes marcarlo como <strong>Vencido</strong> para trasladarlo al siguiente mes con el valor duplicado (${formatCurrency(expense.valor * 2, expense.moneda)}).
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Selector de Fecha de Pago */}
                     <div>
@@ -268,13 +374,30 @@ export default function PaymentConfirmModal({ expense, onClose, onSuccess }: Pay
                 </div>
 
                 {/* Footer */}
-                <div className="bg-zinc-50 border-t border-zinc-100 p-6 px-8 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-zinc-600 hover:bg-zinc-200 transition-colors">
-                        Cancelar
-                    </button>
-                    <button onClick={handleConfirm} disabled={loading} className="px-6 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-500 shadow-md shadow-teal-500/20 disabled:opacity-50 transition-colors flex items-center gap-2">
-                        {loading ? 'Procesando...' : <><CheckCircle2 className="w-5 h-5" /> Confirmar Pago</>}
-                    </button>
+                <div className="bg-zinc-50 border-t border-zinc-100 p-6 px-8 flex flex-col gap-3">
+                    {/* Overdue button - only shown when payment is overdue */}
+                    {isOverdue && (
+                        <button
+                            onClick={handleMarkOverdue}
+                            disabled={loadingOverdue || loading}
+                            className="w-full px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-md shadow-rose-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            {loadingOverdue ? 'Procesando...' : (
+                                <>
+                                    <AlertTriangle className="w-5 h-5" />
+                                    Marcar Vencido — Duplicar al Siguiente Mes ({formatCurrency(expense.valor * 2, expense.moneda)})
+                                </>
+                            )}
+                        </button>
+                    )}
+                    <div className="flex justify-end gap-3">
+                        <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-zinc-600 hover:bg-zinc-200 transition-colors">
+                            Cancelar
+                        </button>
+                        <button onClick={handleConfirm} disabled={loading || loadingOverdue} className="px-6 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-500 shadow-md shadow-teal-500/20 disabled:opacity-50 transition-colors flex items-center gap-2">
+                            {loading ? 'Procesando...' : <><CheckCircle2 className="w-5 h-5" /> Confirmar Pago</>}
+                        </button>
+                    </div>
                 </div>
 
             </div>
